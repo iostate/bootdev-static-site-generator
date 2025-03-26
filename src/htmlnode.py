@@ -14,7 +14,6 @@ class HTMLNode():
     
     def props_to_html(self):
         result = " " +" ".join(map(lambda kv: f"{kv[0]}=\"{kv[1]}\"", self.props.items()))
-        print(f"result = {result}")
         return result 
     
     def __repr__(self):

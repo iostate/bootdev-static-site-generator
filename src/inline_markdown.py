@@ -1,8 +1,65 @@
 import re
 from textnode import TextNode, TextType
 from htmlnode import HTMLNode, LeafNode
+
+# Takes a list of TextNodes and returns a list of TextNodes that are formatted for images
+# Returns the original list of TextNodes if no image links are found
+def split_nodes_images(old_nodes: list[TextNode]):
+    new_nodes = []
+     
+    for node in old_nodes:
+        if node.text_type != TextType.TEXT:
+            new_nodes.append(node)
+            continue
+        
+        text = node.text
+        tags = extract_markdown_images(text)
+        if not tags:
+            return old_nodes
+        for tag in tags:
+            sections = text.split(f"![{tag[0]}]({tag[1]})", 1)
+            if sections[0]:
+                new_nodes.append(TextNode(sections[0], TextType.TEXT))
             
- 
+            image = TextNode(tag[0], TextType.IMAGE, tag[1])
+            new_nodes.append(image)
+            if len(sections) > 1:
+                text = sections[1] # traverse to next section, basically moving to text after the image
+            else:
+                text = ""
+    
+    return new_nodes
+
+
+# Takes a list of TextNodes and returns a list of TextNodes that are formatted for links
+# Returns the original list of TextNodes if no links are found
+def split_node_links(old_nodes: list[TextNode]):
+    new_nodes = []
+    
+    for node in old_nodes:
+        if node.text_type != TextType.TEXT:
+            new_nodes.append(node)
+            continue
+        
+        text = node.text
+        tags = extract_markdown_links(node.text)
+        if not tags:
+            return old_nodes
+        for tag in tags:
+            alt = tag[0]
+            link = tag[1]
+            sections = text.split(f"[{alt}]({link})", 1)
+            if sections[0]:
+                new_nodes.append(TextNode(sections[0], TextType.TEXT))
+            new_nodes.append(TextNode(alt, TextType.LINK, link))
+            if len(sections) > 1:
+                text = sections[1] # traverse to next section, basically moving to text after the link
+            else:
+                text = ""
+                
+    return new_nodes            
+            
+            
 # boot.dev's solution       
 def split_nodes_delimiter(old_nodes, delimiter, text_type: TextNode) -> list[TextNode]:
     new_nodes = []
@@ -14,6 +71,7 @@ def split_nodes_delimiter(old_nodes, delimiter, text_type: TextNode) -> list[Tex
         
         split_nodes = []
         sections = node.text.split(delimiter)
+        # ensures that there are pairs of delimiters, return error if second delimiter of pair not found
         if len(sections) % 2 == 0:
             raise ValueError("invalid markdown, formatted section not closed")
         for i in range(len(sections)):
@@ -26,6 +84,7 @@ def split_nodes_delimiter(old_nodes, delimiter, text_type: TextNode) -> list[Tex
         new_nodes.extend(split_nodes)
         
         return new_nodes
+    
             
 def extract_markdown_images(text):
     found = re.findall(r"!\[([^\[\]]*)\]\(([^\(\)]*)\)", text)
