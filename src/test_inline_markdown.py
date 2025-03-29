@@ -1,146 +1,147 @@
 import unittest
-from textnode import TextNode, TextType, text_node_to_html_node
-from inline_markdown import extract_markdown_images, extract_markdown_links, split_nodes_images, split_node_links
+from inline_markdown import (
+    split_nodes_delimiter,
+    split_nodes_image,
+    split_nodes_link,
+    text_to_textnodes,
+    extract_markdown_links,
+    extract_markdown_images,
+)
 
-# ---- BEGIN BOOT.DEV TESTS
-
-import unittest
-from htmlnode import LeafNode, ParentNode, HTMLNode
+from textnode import TextNode, TextType
 
 
-class TestHTMLNode(unittest.TestCase):
-    def test_to_html_props(self):
-        node = HTMLNode(
-            "div",
-            "Hello, world!",
-            None,
-            {"class": "greeting", "href": "https://boot.dev"},
-        )
-        self.assertEqual(
-            node.props_to_html(),
-            ' class="greeting" href="https://boot.dev"',
-        )
-
-    def test_values(self):
-        node = HTMLNode(
-            "div",
-            "I wish I could read",
-        )
-        self.assertEqual(
-            node.tag,
-            "div",
-        )
-        self.assertEqual(
-            node.value,
-            "I wish I could read",
-        )
-        self.assertEqual(
-            node.children,
-            None,
-        )
-        self.assertEqual(
-            node.props,
-            None,
-        )
-
-    def test_repr(self):
-        node = HTMLNode(
-            "p",
-            "What a strange world",
-            None,
-            {"class": "primary"},
-        )
-        self.assertEqual(
-            node.__repr__(),
-            "HTMLNode(p, What a strange world, children: None, {'class': 'primary'})",
-        )
-
-    def test_leaf_to_html_p(self):
-        node = LeafNode("p", "Hello, world!")
-        self.assertEqual(node.to_html(), "<p>Hello, world!</p>")
-
-    def test_leaf_to_html_a(self):
-        node = LeafNode("a", "Click me!", {"href": "https://www.google.com"})
-        self.assertEqual(
-            node.to_html(),
-            '<a href="https://www.google.com">Click me!</a>',
-        )
-
-    def test_leaf_to_html_no_tag(self):
-        node = LeafNode(None, "Hello, world!")
-        self.assertEqual(node.to_html(), "Hello, world!")
-
-    def test_to_html_with_children(self):
-        child_node = LeafNode("span", "child")
-        parent_node = ParentNode("div", [child_node])
-        self.assertEqual(parent_node.to_html(), "<div><span>child</span></div>")
-
-    def test_to_html_with_grandchildren(self):
-        grandchild_node = LeafNode("b", "grandchild")
-        child_node = ParentNode("span", [grandchild_node])
-        parent_node = ParentNode("div", [child_node])
-        self.assertEqual(
-            parent_node.to_html(),
-            "<div><span><b>grandchild</b></span></div>",
-        )
-
-    def test_to_html_many_children(self):
-        node = ParentNode(
-            "p",
+class TestInlineMarkdown(unittest.TestCase):
+    def test_delim_bold(self):
+        node = TextNode("This is text with a **bolded** word", TextType.TEXT)
+        new_nodes = split_nodes_delimiter([node], "**", TextType.BOLD)
+        self.assertListEqual(
             [
-                LeafNode("b", "Bold text"),
-                LeafNode(None, "Normal text"),
-                LeafNode("i", "italic text"),
-                LeafNode(None, "Normal text"),
+                TextNode("This is text with a ", TextType.TEXT),
+                TextNode("bolded", TextType.BOLD),
+                TextNode(" word", TextType.TEXT),
             ],
-        )
-        self.assertEqual(
-            node.to_html(),
-            "<p><b>Bold text</b>Normal text<i>italic text</i>Normal text</p>",
+            new_nodes,
         )
 
-    def test_headings(self):
-        node = ParentNode(
-            "h2",
+    def test_delim_bold_double(self):
+        node = TextNode(
+            "This is text with a **bolded** word and **another**", TextType.TEXT
+        )
+        new_nodes = split_nodes_delimiter([node], "**", TextType.BOLD)
+        self.assertListEqual(
             [
-                LeafNode("b", "Bold text"),
-                LeafNode(None, "Normal text"),
-                LeafNode("i", "italic text"),
-                LeafNode(None, "Normal text"),
+                TextNode("This is text with a ", TextType.TEXT),
+                TextNode("bolded", TextType.BOLD),
+                TextNode(" word and ", TextType.TEXT),
+                TextNode("another", TextType.BOLD),
             ],
+            new_nodes,
         )
+
+    def test_delim_bold_multiword(self):
+        node = TextNode(
+            "This is text with a **bolded word** and **another**", TextType.TEXT
+        )
+        new_nodes = split_nodes_delimiter([node], "**", TextType.BOLD)
+        self.assertListEqual(
+            [
+                TextNode("This is text with a ", TextType.TEXT),
+                TextNode("bolded word", TextType.BOLD),
+                TextNode(" and ", TextType.TEXT),
+                TextNode("another", TextType.BOLD),
+            ],
+            new_nodes,
+        )
+
+    def test_delim_italic(self):
+        node = TextNode("This is text with an _italic_ word", TextType.TEXT)
+        new_nodes = split_nodes_delimiter([node], "_", TextType.ITALIC)
+        self.assertListEqual(
+            [
+                TextNode("This is text with an ", TextType.TEXT),
+                TextNode("italic", TextType.ITALIC),
+                TextNode(" word", TextType.TEXT),
+            ],
+            new_nodes,
+        )
+
+    def test_delim_bold_and_italic(self):
+        node = TextNode("**bold** and _italic_", TextType.TEXT)
+        new_nodes = split_nodes_delimiter([node], "**", TextType.BOLD)
+        new_nodes = split_nodes_delimiter(new_nodes, "_", TextType.ITALIC)
         self.assertEqual(
-            node.to_html(),
-            "<h2><b>Bold text</b>Normal text<i>italic text</i>Normal text</h2>",
+            [
+                TextNode("bold", TextType.BOLD),
+                TextNode(" and ", TextType.TEXT),
+                TextNode("italic", TextType.ITALIC),
+            ],
+            new_nodes,
         )
-        
-        
-        def test_extract_markdown_images(self):
-            matches = extract_markdown_images(
-                "This is text with an ![image](https://i.imgur.com/zjjcJKZ.png)"
-            )
-            self.assertListEqual([("image", "https://i.imgur.com/zjjcJKZ.png")], matches)
-        
-    # END extract_markdown_images tests
-        
-    # BEGIN extract_markdown_links tests    
+
+    def test_delim_code(self):
+        node = TextNode("This is text with a `code block` word", TextType.TEXT)
+        new_nodes = split_nodes_delimiter([node], "`", TextType.CODE)
+        self.assertListEqual(
+            [
+                TextNode("This is text with a ", TextType.TEXT),
+                TextNode("code block", TextType.CODE),
+                TextNode(" word", TextType.TEXT),
+            ],
+            new_nodes,
+        )
+
+    def test_extract_markdown_images(self):
+        matches = extract_markdown_images(
+            "This is text with an ![image](https://i.imgur.com/zjjcJKZ.png)"
+        )
+        self.assertListEqual([("image", "https://i.imgur.com/zjjcJKZ.png")], matches)
+
     def test_extract_markdown_links(self):
         matches = extract_markdown_links(
-            "This is text with a link [to boot dev](https://www.boot.dev) and [to youtube](https://www.youtube.com/@bootdotdev)"
-            )
-        
-        self.assertListEqual([("to boot dev", "https://www.boot.dev"), ("to youtube", "https://www.youtube.com/@bootdotdev")], matches)
-        # ("to youtube", "https://www.youtube.com/@bootdotdev")
-        
-    # END extract_markdown_links tests
-    
-    # BEGIN 
+            "This is text with a [link](https://boot.dev) and [another link](https://blog.boot.dev)"
+        )
+        self.assertListEqual(
+            [
+                ("link", "https://boot.dev"),
+                ("another link", "https://blog.boot.dev"),
+            ],
+            matches,
+        )
+
+    def test_split_image(self):
+        node = TextNode(
+            "This is text with an ![image](https://i.imgur.com/zjjcJKZ.png)",
+            TextType.TEXT,
+        )
+        new_nodes = split_nodes_image([node])
+        self.assertListEqual(
+            [
+                TextNode("This is text with an ", TextType.TEXT),
+                TextNode("image", TextType.IMAGE, "https://i.imgur.com/zjjcJKZ.png"),
+            ],
+            new_nodes,
+        )
+
+    def test_split_image_single(self):
+        node = TextNode(
+            "![image](https://www.example.COM/IMAGE.PNG)",
+            TextType.TEXT,
+        )
+        new_nodes = split_nodes_image([node])
+        self.assertListEqual(
+            [
+                TextNode("image", TextType.IMAGE, "https://www.example.COM/IMAGE.PNG"),
+            ],
+            new_nodes,
+        )
+
     def test_split_images(self):
         node = TextNode(
             "This is text with an ![image](https://i.imgur.com/zjjcJKZ.png) and another ![second image](https://i.imgur.com/3elNhQu.png)",
             TextType.TEXT,
         )
-        new_nodes = split_nodes_images([node])
+        new_nodes = split_nodes_image([node])
         self.assertListEqual(
             [
                 TextNode("This is text with an ", TextType.TEXT),
@@ -152,133 +153,44 @@ class TestHTMLNode(unittest.TestCase):
             ],
             new_nodes,
         )
-    
+
     def test_split_links(self):
-        node = TextNode("This is text with a link [alternative text hello](https://www.boot.dev/u/bigfaxmachine)", TextType.TEXT)
-        
-        new_nodes = split_node_links([node])
-        print(f"new_nodes = {new_nodes}")
+        node = TextNode(
+            "This is text with a [link](https://boot.dev) and [another link](https://blog.boot.dev) with text that follows",
+            TextType.TEXT,
+        )
+        new_nodes = split_nodes_link([node])
         self.assertListEqual(
             [
-                TextNode("This is text with a link ", TextType.TEXT),
-                TextNode("alternative text hello", TextType.LINK, "https://www.boot.dev/u/bigfaxmachine")
+                TextNode("This is text with a ", TextType.TEXT),
+                TextNode("link", TextType.LINK, "https://boot.dev"),
+                TextNode(" and ", TextType.TEXT),
+                TextNode("another link", TextType.LINK, "https://blog.boot.dev"),
+                TextNode(" with text that follows", TextType.TEXT),
             ],
-            new_nodes
+            new_nodes,
         )
-        
-    # When passing a TextNode with no links or images, we must get a list back with the original TextNode in it
-    def test_split_images_no_links(self):    
-        
-        # Checking our split node links function
-        node = TextNode("This is a text node with absolutely no links or image", TextType.TEXT)
-        new_nodes = split_node_links([node])
-        
+
+    def test_text_to_textnodes(self):
+        nodes = text_to_textnodes(
+            "This is **text** with an _italic_ word and a `code block` and an ![image](https://i.imgur.com/zjjcJKZ.png) and a [link](https://boot.dev)"
+        )
         self.assertListEqual(
-            [node],
-            new_nodes            
+            [
+                TextNode("This is ", TextType.TEXT),
+                TextNode("text", TextType.BOLD),
+                TextNode(" with an ", TextType.TEXT),
+                TextNode("italic", TextType.ITALIC),
+                TextNode(" word and a ", TextType.TEXT),
+                TextNode("code block", TextType.CODE),
+                TextNode(" and an ", TextType.TEXT),
+                TextNode("image", TextType.IMAGE, "https://i.imgur.com/zjjcJKZ.png"),
+                TextNode(" and a ", TextType.TEXT),
+                TextNode("link", TextType.LINK, "https://boot.dev"),
+            ],
+            nodes,
         )
-        
-        # Now we are checking our split node images function
-        node = TextNode("This is a text node with absolutely no links or image", TextType.TEXT)
-        new_nodes = split_nodes_images([node])
-        
-        self.assertListEqual(
-            [node],
-            new_nodes            
-        )
-        
+
 
 if __name__ == "__main__":
     unittest.main()
-
-# ---- END BOOT.DEV TESTS
-
-# ---- BEGIN MY TESTS
-# I am going to use Boot.dev's tests instead
-
-
-# class TestConverts(unittest.TestCase):
-    
-#     # BEGIN text_node_to_html_node tests
-#     def test_text(self):
-#         node = TextNode("This is a text node", TextType.TEXT)
-#         html_node = text_node_to_html_node(node)
-#         self.assertEqual(html_node.tag, None)
-#         self.assertEqual(html_node.value, "This is a text node")
-        
-#     # Test that a Image text node correctly has a src attribute
-#     def test_text_node_anchor_with_url(self):
-#         node = TextNode("This is a text node", TextType.IMAGE, "https://boot.dev")
-#         html_node = text_node_to_html_node(node)
-#         self.assertEqual(html_node.tag, "img")
-#         print(html_node.props)
-#         print(html_node)
-#         self.assertEqual(html_node.props['src'], "https://boot.dev")
-        
-#     def test_that_text_node_still_has_url_properties(self):
-#           node = TextNode("This is a text node", TextType.TEXT, "https://boot.dev")
-#           self.assertEqual(node.url, "https://boot.dev")
-        
-        
-#     def test_anchor_test_node_has_href(self):
-#         node = TextNode("This is a text node", TextType.LINK, "https://boot.dev")
-#         html_node = text_node_to_html_node(node)
-#         self.assertEqual(html_node.tag, "a")
-#         self.assertEqual(html_node.props['href'], "https://boot.dev")
-#         print(html_node)
-        
-#     def test_anchor_node_has_proper_inner_value(self):
-#         node = TextNode("This is a text node", TextType.LINK, "https://boot.dev")
-#         html_node = text_node_to_html_node(node)
-#         self.assertEqual(html_node.value, "This is a text node")
-        
-#     def test_image_node_has_proper_inner_value(self):
-#         node = TextNode("This is a text node", TextType.IMAGE, "https://boot.dev")
-#         html_node = text_node_to_html_node(node)
-#         self.assertEqual(html_node.value, "This is a text node")
-        
-#     def test_all_nodes_have_proper_inner_value(self):
-#         all_nodes_to_be_checked = [
-#             TextNode("This is a text node", TextType.IMAGE, "https://boot.dev"),
-#             TextNode("This is a text node", TextType.LINK, "https://boot.dev"),
-#             TextNode("This is a text node", TextType.BOLD),
-#             TextNode("This is a text node", TextType.ITALIC),
-#             TextNode("This is a text node", TextType.CODE),
-#             TextNode("This is a text node", TextType.TEXT)
-#         ]
-        
-#         for node in all_nodes_to_be_checked:
-#             html_node = text_node_to_html_node(node)
-#             self.assertEqual(html_node.value, "This is a text node",
-#                              f"failed for node type {node.text_type}")
-        
-#     # END text_node_to_html_node tests
-        
-#     # BEGIN extract_markdown_images tests
-#     def test_extract_markdown_images(self):
-#         matches = extract_markdown_images(
-#             "This is text with an ![image](https://i.imgur.com/zjjcJKZ.png)"
-#         )
-#         self.assertListEqual([("image", "https://i.imgur.com/zjjcJKZ.png")], matches)
-        
-#     # END extract_markdown_images tests
-        
-#     # BEGIN extract_markdown_links tests    
-#     def test_extract_markdown_links(self):
-        
-#         test_cases = [ 
-#                       ("This is text with a link [to boot dev](https://www.boot.dev) and [to youtube](https://www.youtube.com/@bootdotdev)")  
-#         ]
-        
-        
-#         matches = extract_markdown_links("This is text with a link [to boot dev](https://www.boot.dev) and [to youtube](https://www.youtube.com/@bootdotdev)")
-        
-#         self.assertListEqual([("to boot dev", "https://www.boot.dev"), ("to youtube", "https://www.youtube.com/@bootdotdev")], matches)
-#         # ("to youtube", "https://www.youtube.com/@bootdotdev")
-        
-        
-    # END extract_markdown_links tests
-    
-# ---- END MY TESTS
-        
-        

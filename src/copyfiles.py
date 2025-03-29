@@ -7,6 +7,7 @@ import os
 import shutil
 
 def copy_files_recursive(source, destination):
+    
     delete_all_content(destination) # ensures clean copy
     if not os.path.exists(source):
         raise ValueError("source does not exist")
@@ -27,8 +28,11 @@ def copy_files_recursive(source, destination):
             shutil.copy2(src_path, dest_path)
 
 def delete_all_content(folder):
+    print(f"folder = {folder}")
+    print(f"folder exists = {os.path.exists(folder)}")
     if not os.path.exists(folder):
-        raise ValueError("folder to delete does not exist")
+        os.makedirs(folder)
+    
     list_dir = os.listdir(folder)
     
     for filename in list_dir:
