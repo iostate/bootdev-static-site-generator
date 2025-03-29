@@ -11,7 +11,7 @@ def extract_title(markdown):
         
     return None
         
-def generate_page(from_path, template_path, dest_path):
+def generate_page(from_path, template_path, dest_path, basepath):
     print(f"Generating page {from_path} to {dest_path} using {template_path}")
     
     # Read markdown file
@@ -32,6 +32,8 @@ def generate_page(from_path, template_path, dest_path):
     # Replace the title and content
     replace_title = re.sub("{{ Title }}", title, template)
     replace_content = re.sub("{{ Content }}", content, replace_title)
+    replace_href = re.sub("href=\"/", f"href=\"{basepath}", replace_content)
+    replace_src = re.sub("src=\"/", f"src=\"{basepath}", replace_href)
     
     # Ensure that the directory exists before attempting to create destination
     # file
@@ -40,11 +42,11 @@ def generate_page(from_path, template_path, dest_path):
     
     # Create a new file, replace content of it
     destination = open(dest_path, "w+")
-    destination.write(replace_content)
+    destination.write(replace_src)
     
     return
 
-def generate_pages_recursive(dir_path_content, template_path, dest_dir_path):
+def generate_pages_recursive(dir_path_content, template_path, dest_dir_path, basepath):
     if not os.path.exists(dest_dir_path):
         os.makedirs(dest_dir_path)
         
@@ -59,12 +61,12 @@ def generate_pages_recursive(dir_path_content, template_path, dest_dir_path):
             # Create a directory if needed
             if not os.path.exists(dest_path):
                 os.makedirs(dest_path)
-            generate_pages_recursive(file_path, template_path, dest_path)
+            generate_pages_recursive(file_path, template_path, dest_path, basepath)
         # Generate page
         else:
             # Save as an HTML file
             dest_path_without_ext, _ = os.path.splitext(dest_path)
             print(f"dest_path_without_ext = {dest_path_without_ext}")
             dest_path_as_html = dest_path_without_ext + ".html"
-            generate_page(file_path, template_path, dest_path_as_html)
+            generate_page(file_path, template_path, dest_path_as_html, basepath)
     
